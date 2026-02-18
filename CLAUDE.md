@@ -17,7 +17,9 @@ Swift · SwiftUI · macOS 13+ · `swift-markdown` (SPM) · XcodeGen · Bundle ID
 | `xcodebuild build -project MarkdownPaste.xcodeproj -scheme MarkdownPaste` | Build the app |
 | `xcodebuild test -project MarkdownPaste.xcodeproj -scheme MarkdownPaste` | Run all 56 unit tests |
 | `xcodebuild test -only-testing:MarkdownPasteTests/MarkdownDetectorTests` | Run a single test class |
-| `./Scripts/build-release.sh` | Archive, sign, notarize, package DMG |
+| `./Scripts/build-release.sh` | Build and package unsigned DMG |
+| `SIGN=1 ./Scripts/build-release.sh` | Build signed DMG (requires Developer ID) |
+| `SIGN=1 NOTARIZE=1 ./Scripts/build-release.sh` | Build signed + notarized DMG |
 
 ## Architecture
 
@@ -122,6 +124,12 @@ class ClipboardMonitor {
 - `MarkdownConverterTests` (23 tests) — all GFM elements produce correct HTML tags, RTF data is non-nil, HTML entities escaped, CSS styling present, full document structure, XSS prevention in code blocks
 - `ClipboardWriterTests` (11 tests) — all pasteboard types written, RTF conditional, marker always present, content integrity, clearing old content
 
+## Distribution Strategy
+
+**Current (v1.0)**: Unsigned DMG via GitHub Releases. Recipients bypass Gatekeeper with right-click → Open → Open on first launch.
+
+**Future (v2.0)**: Once demand is validated, enroll in Apple Developer Program ($99/year) for signed+notarized distribution. Monetize with free trial (7-14 days) + one-time lifetime unlock ($9-15).
+
 ## Implementation Status
 
 All core milestones (1-6) are complete. See `PLAN.md` for remaining tasks:
@@ -129,5 +137,6 @@ All core milestones (1-6) are complete. See `PLAN.md` for remaining tasks:
 - **Milestone 8**: Manual QA testing
 - **Milestone 9**: App icon design
 - **Milestone 10**: Performance profiling
-- **Milestone 11**: Code signing & notarization
-- **Milestone 12**: Polish & enhancements (optional)
+- **Milestone 11**: Unsigned DMG distribution + GitHub Release
+- **Milestone 12**: Polish & enhancements (v1.1)
+- **Milestone 13**: Monetization — free trial + lifetime unlock (v2.0, requires Apple Developer Program)

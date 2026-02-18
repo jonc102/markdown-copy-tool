@@ -28,7 +28,9 @@ MarkdownPaste sits in your menu bar and watches the clipboard. When it detects M
 
 ## Installation
 
-Download the latest `.dmg` from [Releases](#), open it, and drag MarkdownPaste to Applications.
+1. Download the latest `.dmg` from [Releases](#)
+2. Open it and drag MarkdownPaste to Applications
+3. On first launch, right-click the app → **Open** → **Open** (one-time Gatekeeper bypass for unsigned apps)
 
 ## Usage
 
@@ -78,7 +80,12 @@ xcodebuild test -project MarkdownPaste.xcodeproj -scheme MarkdownPaste
 ./Scripts/build-release.sh
 ```
 
-This archives, code-signs, notarizes, and packages the app into a `.dmg`. Requires an Apple Developer ID certificate and `create-dmg` (`brew install create-dmg`).
+This builds and packages the app into an unsigned `.dmg`. Optionally install `create-dmg` (`brew install create-dmg`) for a nicer DMG layout with drag-to-Applications.
+
+For signed/notarized builds (requires Apple Developer ID):
+```bash
+SIGN=1 NOTARIZE=1 ./Scripts/build-release.sh
+```
 
 ## How It Works
 

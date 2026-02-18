@@ -284,44 +284,47 @@ Or use Instruments: Product > Profile (⌘I) in Xcode, choose Time Profiler or L
 
 ---
 
-### Milestone 11: Code Signing & Notarization
-**Goal**: Produce a signed, notarized DMG for distribution.
+### Milestone 11: Unsigned DMG Distribution
+**Goal**: Package the app into a `.dmg` for sharing without an Apple Developer license.
+
+The app will trigger a Gatekeeper "unidentified developer" warning. Recipients bypass it by right-clicking → Open → Open (one-time). This is acceptable for early distribution to validate demand before investing in a $99/year Developer ID.
 
 **Prerequisites**:
-- Apple Developer account ($99/year)
-- Developer ID Application certificate in Keychain
-- `create-dmg` tool: `brew install create-dmg`
-- App-specific password or keychain profile for notarytool
+- `create-dmg` tool: `brew install create-dmg` (optional — falls back to `hdiutil`)
 
-- [ ] Set up Developer ID certificate in Xcode (Xcode > Settings > Accounts)
-- [ ] Configure signing in `project.yml` or Xcode:
-  - Set `CODE_SIGN_IDENTITY` to "Developer ID Application"
-  - Set `DEVELOPMENT_TEAM` to your team ID
-- [ ] Store notarization credentials:
+- [ ] Build the Release archive:
   ```bash
-  xcrun notarytool store-credentials "notarytool-profile" \
-    --apple-id "your@email.com" \
-    --team-id "YOUR_TEAM_ID" \
-    --password "app-specific-password"
+  cd /Users/jonathancheung/Documents/GitHub/markdown-copy-tool
+  ./Scripts/build-release.sh
   ```
-- [ ] Run the release script:
+- [ ] Test the DMG on your own Mac:
+  - Open `build/MarkdownPaste.dmg`
+  - Drag app to Applications
+  - Launch — expect Gatekeeper warning on first run
+  - Right-click → Open → Open to bypass
+  - Verify the app works (menu bar icon, clipboard conversion)
+- [ ] Test on another Mac or user account:
+  - Copy the DMG to another machine
+  - Same right-click → Open flow
+  - Verify full functionality
+- [ ] Prepare distribution README / instructions for recipients:
+  - Include a one-line install instruction: "Right-click the app → Open → Open on first launch"
+  - Host DMG on GitHub Releases, Google Drive, or personal site
+- [ ] Create a GitHub Release:
   ```bash
-  APPLE_ID="your@email.com" APPLE_TEAM_ID="YOUR_TEAM_ID" ./Scripts/build-release.sh
+  gh release create v1.0.0 build/MarkdownPaste.dmg \
+    --title "MarkdownPaste v1.0.0" \
+    --notes "Initial release. Right-click → Open → Open on first launch to bypass Gatekeeper."
   ```
-- [ ] Verify the DMG:
-  - Open on a clean Mac (or different user account)
-  - Drag to Applications
-  - Launch — Gatekeeper should NOT show "unidentified developer" warning
-  - Check with: `spctl --assess --type execute /Applications/MarkdownPaste.app`
 
-**Acceptance**: `spctl` reports "accepted". App launches without Gatekeeper warnings.
+**Acceptance**: DMG installs and runs on a clean Mac after the one-time Gatekeeper bypass.
 
 ---
 
-### Milestone 12: Polish & Enhancements (Optional)
-**Goal**: Quality-of-life improvements for v1.1+.
+### Milestone 12: Polish & Enhancements (v1.1)
+**Goal**: Quality-of-life improvements based on early user feedback.
 
-These are optional enhancements that can be prioritized based on user feedback:
+Prioritize based on what users actually request:
 
 - [ ] **Dynamic menu bar icon**: Show different icon states (enabled vs disabled, conversion in progress)
   - Use `Image(systemName: appState.isEnabled ? "doc.richtext.fill" : "doc.richtext")` in `MenuBarExtra`
@@ -348,6 +351,73 @@ These are optional enhancements that can be prioritized based on user feedback:
 - [ ] **Paste preview**: Show a small preview of converted output before writing to clipboard
   - Add a "Preview before converting" toggle in Settings
   - Display a small popover with HTML preview using `WKWebView`
+
+---
+
+### Milestone 13: Monetization — Free Trial + Lifetime Unlock (v2.0)
+**Goal**: Once demand is validated, sign up for Apple Developer Program and monetize with a free trial and one-time lifetime purchase.
+
+**Prerequisites**:
+- Proven demand (download count, user feedback, feature requests)
+- Apple Developer Program enrollment ($99/year)
+- Payment infrastructure decision
+
+**Phase 1: Apple Developer Program & Signed Distribution**
+- [ ] Enroll in Apple Developer Program ($99/year) at https://developer.apple.com/programs/
+- [ ] Set up Developer ID Application certificate (Xcode > Settings > Accounts)
+- [ ] Configure signing in `project.yml`:
+  ```yaml
+  settings:
+    base:
+      CODE_SIGN_IDENTITY: "Developer ID Application"
+      DEVELOPMENT_TEAM: "YOUR_TEAM_ID"
+  ```
+- [ ] Store notarization credentials:
+  ```bash
+  xcrun notarytool store-credentials "notarytool-profile" \
+    --apple-id "your@email.com" \
+    --team-id "YOUR_TEAM_ID" \
+    --password "app-specific-password"
+  ```
+- [ ] Run signed release: `APPLE_ID="..." APPLE_TEAM_ID="..." ./Scripts/build-release.sh`
+- [ ] Verify Gatekeeper accepts without warnings: `spctl --assess --type execute /path/to/app`
+
+**Phase 2: Trial + Licensing System**
+- [ ] Choose licensing approach:
+  - **Option A — Gumroad / LemonSqueezy**: Hosted payment page, license key validation via API, minimal code. Best for solo dev.
+  - **Option B — RevenueCat**: Handles subscriptions/purchases, macOS SDK available, receipt validation. Best if considering subscriptions later.
+  - **Option C — Custom**: Generate license keys yourself, validate offline with cryptographic signing. Most control, most work.
+- [ ] Implement trial logic in `AppState`:
+  ```swift
+  @AppStorage("firstLaunchDate") var firstLaunchDate: Double = 0  // TimeInterval
+  @AppStorage("licenseKey") var licenseKey: String = ""
+
+  var isTrialActive: Bool {
+      let firstLaunch = Date(timeIntervalSince1970: firstLaunchDate)
+      return Date().timeIntervalSince(firstLaunch) < trialDuration
+  }
+  var isLicensed: Bool { !licenseKey.isEmpty && validateLicense(licenseKey) }
+  var canUseApp: Bool { isTrialActive || isLicensed }
+  ```
+- [ ] Add trial duration constant to `Constants.swift` (e.g., 7 or 14 days)
+- [ ] Create `LicenseView.swift`:
+  - Show trial days remaining
+  - "Enter License Key" text field
+  - "Buy License" button → opens payment page URL
+  - Validation feedback (valid/invalid key)
+- [ ] Gate `ClipboardMonitor.checkClipboard()` behind `appState.canUseApp`
+- [ ] Show trial expiry notice in `MenuBarView` when trial is ending (< 2 days left)
+- [ ] Add "Buy License" menu item in `MenuBarView` when unlicensed
+
+**Phase 3: Pricing & Distribution**
+- [ ] Set pricing (suggested: $9-15 USD lifetime, based on comparable macOS utilities)
+- [ ] Create landing page / product page
+- [ ] Set up payment provider (Gumroad/LemonSqueezy page)
+- [ ] Update README with purchase link
+- [ ] Distribute signed+notarized DMG via GitHub Releases or landing page
+- [ ] Add analytics to track trial-to-purchase conversion (optional, privacy-respecting)
+
+**Acceptance**: Users can download, use the free trial for N days, purchase a lifetime license, enter the key, and continue using the app indefinitely. Signed DMG installs without Gatekeeper warnings.
 
 ---
 
@@ -431,4 +501,4 @@ enum Constants {
    - Copy GFM table → paste in Apple Notes → should render as table
    - Toggle app off → copy Markdown → paste → should remain raw
 3. **Performance**: Detector <5ms, converter <100ms on typical documents
-4. **Distribution**: Install from DMG on clean Mac, verify launch-at-login, verify Gatekeeper accepts notarized app
+4. **Distribution**: Install from unsigned DMG on clean Mac, verify right-click → Open bypass works, verify launch-at-login
