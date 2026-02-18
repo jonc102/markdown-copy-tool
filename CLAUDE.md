@@ -14,8 +14,8 @@ Swift · SwiftUI · macOS 13+ · `swift-markdown` (SPM) · XcodeGen · Bundle ID
 | Command | Description |
 |---------|-------------|
 | `xcodegen generate` | Generate `.xcodeproj` from `project.yml` |
-| `xcodebuild build` | Build the app |
-| `xcodebuild test` | Run all unit tests |
+| `xcodebuild build -project MarkdownPaste.xcodeproj -scheme MarkdownPaste` | Build the app |
+| `xcodebuild test -project MarkdownPaste.xcodeproj -scheme MarkdownPaste` | Run all 56 unit tests |
 | `xcodebuild test -only-testing:MarkdownPasteTests/MarkdownDetectorTests` | Run a single test class |
 | `./Scripts/build-release.sh` | Archive, sign, notarize, package DMG |
 
@@ -25,31 +25,37 @@ Swift · SwiftUI · macOS 13+ · `swift-markdown` (SPM) · XcodeGen · Bundle ID
 MarkdownPaste/
 ├── MarkdownPaste/
 │   ├── App/           # MarkdownPasteApp.swift (@main), AppDelegate, AppState
-│   ├── Views/         # MenuBarView (dropdown), SettingsView (prefs window)
+│   ├── Views/         # MenuBarView (dropdown), SettingsView (General + Detection tabs)
 │   ├── Services/      # ClipboardMonitor, MarkdownDetector, MarkdownConverter, ClipboardWriter
 │   ├── Utilities/     # Constants, PasteboardTypes (marker extension)
 │   └── Resources/     # Assets.xcassets, Info.plist
-├── MarkdownPasteTests/
-└── Scripts/
+├── MarkdownPasteTests/  # 56 tests: detector (22), converter (23), writer (11)
+├── Scripts/             # build-release.sh
+├── ExportOptions.plist  # developer-id export config
+└── project.yml          # XcodeGen configuration
 ```
 
-**Data flow**: Timer (0.5s) → changeCount changed? → marker absent? → no existing HTML/RTF? → extract plain text → detect Markdown (score >= threshold) → convert (AST → HTML + RTF) → write back with marker
+**Data flow**: Timer (0.5s) → changeCount changed? → marker absent? → no existing HTML/RTF? → extract plain text → not empty, ≤100KB? → detect Markdown (score >= threshold) → convert (AST → HTML + RTF) → write back with marker → update conversion count
 
 ## Key Files
 
-- `App/MarkdownPasteApp.swift` — `@main` entry point, `MenuBarExtra` scene
-- `App/AppState.swift` — Singleton with `@AppStorage` properties (`isEnabled`, `launchAtLogin`, `detectionSensitivity`, `includeRTF`)
-- `Services/ClipboardMonitor.swift` — Timer-based polling, orchestrates the full pipeline
-- `Services/MarkdownDetector.swift` — 15 weighted regex patterns, `detect(text:threshold:) -> Bool`
-- `Services/MarkdownConverter.swift` — `convert(markdown:) -> (html: String, rtf: Data?)` using `MarkupVisitor`
-- `Services/ClipboardWriter.swift` — `write(plainText:html:rtf:)`, always sets marker type
+- `App/MarkdownPasteApp.swift` — `@main` entry point, `MenuBarExtra` + `Settings` scenes
+- `App/AppState.swift` — `@MainActor` singleton with `@AppStorage` preferences, `SMAppService` login item management
+- `App/AppDelegate.swift` — Creates and manages `ClipboardMonitor` lifecycle
+- `Services/ClipboardMonitor.swift` — Timer-based polling with 10-step guard pipeline, `[weak self]` timer, `.common` RunLoop mode
+- `Services/MarkdownDetector.swift` — 15 pre-compiled `NSRegularExpression` patterns with weighted scoring, `.anchorsMatchLines` for `^`/`$` anchors
+- `Services/MarkdownConverter.swift` — `HTMLVisitor` conforming to `MarkupVisitor` (22 visit methods), CSS styling, RTF via `NSAttributedString`
+- `Services/ClipboardWriter.swift` — Multi-format `NSPasteboardItem` write with self-marker
+- `Views/MenuBarView.swift` — Toggle, conversion status, `SettingsLink`, quit with keyboard shortcuts
+- `Views/SettingsView.swift` — `TabView` with General (enable, login, RTF) and Detection (sensitivity slider) tabs
 - `Utilities/PasteboardTypes.swift` — `NSPasteboard.PasteboardType.markdownPasteMarker` extension
-- `Utilities/Constants.swift` — `pollingInterval` (0.5), `maxContentSize` (100KB), `defaultDetectionThreshold` (2)
+- `Utilities/Constants.swift` — `pollingInterval` (0.5s), `maxContentSize` (100KB), `defaultDetectionThreshold` (2)
 
 ## Interface Contracts
 
 ```swift
-// AppState — singleton, consumed by all layers
+// AppState — @MainActor singleton, consumed by all layers
+@MainActor
 class AppState: ObservableObject {
     static let shared = AppState()
     @AppStorage("isEnabled") var isEnabled: Bool                        // true
@@ -60,7 +66,7 @@ class AppState: ObservableObject {
     @Published var lastConversionDate: Date?                            // nil
 }
 
-// Detector — stateless, precompiled regexes
+// Detector — stateless, pre-compiled regexes in init()
 struct MarkdownDetector {
     func detect(text: String, threshold: Int) -> Bool
     func score(text: String) -> Int
@@ -76,7 +82,7 @@ struct ClipboardWriter {
     func write(plainText: String, html: String, rtf: Data?)
 }
 
-// Monitor — owns detector, converter, writer
+// Monitor — owns detector, converter, writer; uses [weak self] timer
 class ClipboardMonitor {
     init(appState: AppState)
     func start()
@@ -88,9 +94,12 @@ class ClipboardMonitor {
 
 - Swift naming conventions (camelCase properties, PascalCase types)
 - `struct` for stateless services (Detector, Converter, Writer); `class` for stateful (AppState, Monitor)
+- `@MainActor` on `AppState` for SwiftUI thread safety
 - `@AppStorage` for persisted user preferences; `@Published` for runtime-only state
 - Prefer `guard` for early returns in pipeline methods
-- Pre-compile `NSRegularExpression` patterns as stored properties, not per-call
+- Pre-compile `NSRegularExpression` patterns as stored properties in `init()`, not per-call
+- Use `.anchorsMatchLines` option for regex patterns that use `^` or `$` anchors
+- `SettingsLink` (SwiftUI native) for opening settings, not `NSApp.sendAction(Selector(...))`
 
 ## Gotchas
 
@@ -98,16 +107,27 @@ class ClipboardMonitor {
 - **Infinite loop risk** — writing to pasteboard triggers changeCount bump; always write the marker type and check for it before processing
 - **Sandbox disabled** — `NSPasteboard.general` requires unsandboxed access; app is distributed via DMG, not App Store
 - **macOS 16+ privacy prompts** — `NSPasteboardUsageDescription` in Info.plist provides the rationale; handle `nil` pasteboard reads gracefully
-- **RTF generation must happen on main thread** — `NSAttributedString(html:documentAttributes:)` uses WebKit internally
+- **RTF generation must happen on main thread** — `NSAttributedString(html:documentAttributes:)` uses WebKit internally; Timer fires on main RunLoop so this is satisfied
 - **Content size guard** — skip clipboard content > 100KB to avoid blocking the main thread
 - **Detection false positives** — single `*` or `-` in plain text can score; threshold default of 2 requires multiple pattern matches
+- **Operator precedence with Optional Bool** — `!optional?.contains(...) ?? true` has wrong precedence; use `optional?.contains(...) != true` instead
+- **Timer RunLoop mode** — must add timer to `.common` mode via `RunLoop.current.add(timer!, forMode: .common)` so it fires even while menus are open
+- **`@MainActor` access from Timer** — Timer callback runs on main thread but isn't annotated `@MainActor`; use `Task { @MainActor in ... }` for AppState mutations
 
 ## Testing
 
-- `MarkdownDetectorTests` — 15+ positive cases (GFM elements), 5+ negative (plain text), edge cases (empty, whitespace, boundary)
-- `MarkdownConverterTests` — all GFM elements produce correct HTML tags, RTF data is non-nil, HTML entities escaped
-- `ClipboardWriterTests` — all pasteboard types written, RTF conditional, marker always present
+56 tests across 3 test files:
 
-## Implementation Plan
+- `MarkdownDetectorTests` (22 tests) — 15+ positive (all GFM patterns), 6 negative (plain text, URLs, emails), 6 edge cases (empty, whitespace, threshold boundary, score capping, zero threshold)
+- `MarkdownConverterTests` (23 tests) — all GFM elements produce correct HTML tags, RTF data is non-nil, HTML entities escaped, CSS styling present, full document structure, XSS prevention in code blocks
+- `ClipboardWriterTests` (11 tests) — all pasteboard types written, RTF conditional, marker always present, content integrity, clearing old content
 
-See `PLAN.md` for full milestones and agent task assignments.
+## Implementation Status
+
+All core milestones (1-6) are complete. See `PLAN.md` for remaining tasks:
+- **Milestone 7**: Build verification (requires Xcode)
+- **Milestone 8**: Manual QA testing
+- **Milestone 9**: App icon design
+- **Milestone 10**: Performance profiling
+- **Milestone 11**: Code signing & notarization
+- **Milestone 12**: Polish & enhancements (optional)
