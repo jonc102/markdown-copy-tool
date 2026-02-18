@@ -50,9 +50,25 @@ class ClipboardMonitor {
         // 3. Guard: is this our own write? (marker present)
         guard pasteboard.types?.contains(.markdownPasteMarker) != true else { return }
 
-        // 4. Guard: skip if already has rich text (HTML or RTF)
-        if let types = pasteboard.types {
-            if types.contains(.html) || types.contains(.rtf) {
+        // 4. Guard: skip if clipboard has semantically rich HTML (from browsers, docs, etc.)
+        //
+        // Code editors put syntax-highlighted HTML on the clipboard, but it's just
+        // styled <div>/<span>/<pre> wrappers — not rendered Markdown. We only skip
+        // if the HTML contains semantic tags that indicate actual rich content.
+        //
+        // Editor clipboard formats (all use only div/span/pre + inline styles):
+        //   VS Code, Cursor, Windsurf — <div style="..."><span style="color:...">
+        //   JetBrains (IntelliJ, WebStorm, PyCharm) — <pre style="..."><span style="...">
+        //   Atom, Zed, TextMate — <div>/<span> with inline styles
+        //   Xcode — RTF only (no HTML), handled by removing RTF-only guard
+        //
+        // Apps with semantic HTML (correctly skipped):
+        //   Browsers, Apple Notes, Google Docs, Microsoft Office, Notion
+        //
+        // Plain-text-only editors (no guard needed):
+        //   Terminal, Sublime Text, BBEdit, vim, emacs, nano
+        if let types = pasteboard.types, types.contains(.html) {
+            if let html = pasteboard.string(forType: .html), hasSemanticHTML(html) {
                 return
             }
         }
@@ -79,5 +95,24 @@ class ClipboardMonitor {
         // 10. Update app state
         appState.conversionCount += 1
         appState.lastConversionDate = Date()
+    }
+
+    /// Check if HTML contains semantic content tags (from browsers, docs, etc.)
+    /// vs just styled wrappers from code editors (div/span/pre with color styles).
+    ///
+    /// Note: <pre> is excluded because JetBrains IDEs wrap syntax-highlighted code
+    /// in <pre> tags. A browser copying a rendered page will always have other
+    /// semantic tags alongside <pre> (e.g., <p>, <h1>, <li>).
+    private func hasSemanticHTML(_ html: String) -> Bool {
+        let semanticTags = [
+            "<h1", "<h2", "<h3", "<h4", "<h5", "<h6",
+            "<strong", "<b>", "<b ",
+            "<em>", "<i>", "<i ",
+            "<ul", "<ol", "<li",
+            "<table", "<blockquote",
+            "<p>", "<p ",
+        ]
+        let lowered = html.lowercased()
+        return semanticTags.contains { lowered.contains($0) }
     }
 }
