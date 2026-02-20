@@ -18,6 +18,8 @@ MarkdownPaste sits in your menu bar and watches the clipboard. When it detects M
 - **Non-intrusive** — Menu bar only, no Dock icon, no windows unless you open Settings
 - **Smart skip** — Ignores clipboard content that already has rich formatting (copied from web, docs, etc.)
 - **Configurable sensitivity** — Adjust detection threshold from aggressive (1) to conservative (5)
+- **Font size control** — Choose Small (12px), Medium (14px), or Large (18px) output
+- **Conversion notifications** — Optional system notifications when Markdown is detected and converted
 - **Launch at Login** — Optional auto-start via SMAppService
 - **Lightweight** — <1% CPU with 0.5s polling interval
 
@@ -64,15 +66,23 @@ The conversion count resets when you quit and relaunch.
 
 ### Settings
 
-**General tab**
+The Settings window uses a sidebar layout with three tabs.
+
+**General**
 
 - **Enable MarkdownPaste** — Master on/off switch. Mirrored by the menu bar toggle.
 - **Launch at Login** — Registers MarkdownPaste as a login item via `SMAppService`.
-- **Include RTF format** — When enabled, the clipboard is written with both HTML and RTF. See [RTF vs HTML](#rtf-vs-html).
+- **Include RTF Format** — When enabled, the clipboard is written with both HTML and RTF. See [RTF vs HTML](#rtf-vs-html).
+- **Notify on Conversion** — Shows a macOS notification each time Markdown is detected and converted. Triggers the standard system permission prompt on first enable.
+- **Output Font Size** — Sets the base font size of the converted rich text: Small (12px), Medium (14px, default), or Large (18px).
 
-**Detection tab**
+**Detection**
 
 - **Detection Sensitivity** — Slider from 1 (Very Aggressive) to 5 (Very Conservative), defaulting to 2 (Normal). Controls the scoring threshold; see [Detection Sensitivity](#detection-sensitivity).
+
+**Support**
+
+- **Buy Me a Coffee** — Opens the support link in your browser.
 
 ---
 
@@ -231,7 +241,7 @@ xcodebuild build -project MarkdownPaste.xcodeproj -scheme MarkdownPaste
 xcodebuild test -project MarkdownPaste.xcodeproj -scheme MarkdownPaste
 ```
 
-56 unit tests cover the detection engine (22 tests), Markdown-to-HTML converter (23 tests), and clipboard writer (11 tests).
+70 unit tests cover the detection engine, Markdown-to-HTML converter, and clipboard writer.
 
 ### Release
 
