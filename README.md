@@ -32,11 +32,7 @@ MarkdownPaste sits in your menu bar and watches the clipboard. When it detects M
 
 ## Installation
 
-1. Download the latest `.dmg` from [Releases](#).
-2. Open it and drag MarkdownPaste to your Applications folder.
-3. On first launch, macOS Gatekeeper will block the app because it is unsigned. To bypass: right-click the app in Finder → **Open** → **Open** in the dialog. You only need to do this once.
-
-> **Why unsigned?** The app is distributed directly rather than through the Mac App Store. It makes no network connections and all processing happens locally.
+> **Note:** A pre-built release is not yet available. Build from source using the instructions below.
 
 After the first launch, MarkdownPaste appears as an icon in your menu bar. There is no Dock icon and no main window.
 
