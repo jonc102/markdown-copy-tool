@@ -1,4 +1,5 @@
 import AppKit
+import UserNotifications
 
 @MainActor
 class ClipboardMonitor {
@@ -83,7 +84,7 @@ class ClipboardMonitor {
         guard detector.detect(text: plainText, threshold: threshold) else { return }
 
         // 7. Convert
-        let result = converter.convert(markdown: plainText)
+        let result = converter.convert(markdown: plainText, fontSize: appState.baseFontSize)
 
         // 8. Write back
         let rtfData = appState.includeRTF ? result.rtf : nil
@@ -95,6 +96,16 @@ class ClipboardMonitor {
         // 10. Update app state
         appState.conversionCount += 1
         appState.lastConversionDate = Date()
+
+        if appState.showNotifications { sendConversionNotification() }
+    }
+
+    private func sendConversionNotification() {
+        let content = UNMutableNotificationContent()
+        content.title = "Markdown Converted"
+        content.body = "Clipboard updated with formatted text"
+        let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
+        UNUserNotificationCenter.current().add(request, withCompletionHandler: nil)
     }
 
     /// Check if HTML contains semantic content tags (from browsers, docs, etc.)

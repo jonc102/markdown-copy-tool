@@ -4,23 +4,23 @@ import AppKit
 
 struct MarkdownConverter {
 
-    func convert(markdown: String) -> (html: String, rtf: Data?) {
+    func convert(markdown: String, fontSize: Int = 14) -> (html: String, rtf: Data?) {
         let document = Document(parsing: markdown)
         var visitor = HTMLVisitor()
         let bodyHTML = visitor.visit(document)
-        let fullHTML = wrapInHTMLDocument(bodyHTML)
+        let fullHTML = wrapInHTMLDocument(bodyHTML, fontSize: fontSize)
         let rtf = generateRTF(from: fullHTML)
         return (html: fullHTML, rtf: rtf)
     }
 
     // MARK: - HTML Document Wrapper
 
-    private func wrapInHTMLDocument(_ body: String) -> String {
+    private func wrapInHTMLDocument(_ body: String, fontSize: Int = 14) -> String {
         return """
         <!DOCTYPE html>
         <html>
         <head><style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #333; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; font-size: \(fontSize)px; line-height: 1.6; color: #333; }
         h1, h2, h3, h4, h5, h6 { margin-top: 1em; margin-bottom: 0.5em; font-weight: 600; }
         h1 { font-size: 1.8em; } h2 { font-size: 1.5em; } h3 { font-size: 1.3em; }
         code { background-color: #f0f0f0; padding: 2px 6px; border-radius: 3px; font-family: "SF Mono", Menlo, monospace; font-size: 0.9em; }
