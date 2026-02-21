@@ -80,8 +80,9 @@ final class MarkdownConverterTests: XCTestCase {
 
     func testTaskListProducesCheckboxes() {
         let result = converter.convert(markdown: "- [x] Done\n- [ ] Not done")
-        XCTAssertTrue(result.html.contains("checkbox"))
-        XCTAssertTrue(result.html.contains("checked"))
+        // Unicode ballot boxes: ☑ (checked) and ☐ (unchecked)
+        XCTAssertTrue(result.html.contains("&#x2611;"))
+        XCTAssertTrue(result.html.contains("&#x2610;"))
     }
 
     // MARK: - Block Elements
@@ -93,7 +94,8 @@ final class MarkdownConverterTests: XCTestCase {
 
     func testHorizontalRuleProducesHrTag() {
         let result = converter.convert(markdown: "---")
-        XCTAssertTrue(result.html.contains("<hr>"))
+        // Rendered as a border-top paragraph for RTF compatibility
+        XCTAssertTrue(result.html.contains("border-top"))
     }
 
     // MARK: - Tables

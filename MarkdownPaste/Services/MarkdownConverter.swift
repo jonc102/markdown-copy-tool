@@ -112,7 +112,9 @@ private struct HTMLVisitor: MarkupVisitor {
     }
 
     mutating func visitThematicBreak(_ thematicBreak: ThematicBreak) -> String {
-        return "<hr>\n"
+        // <hr> is often stripped during HTML→RTF conversion. A border-top on a
+        // near-invisible paragraph is more reliably preserved across rich-text apps.
+        return "<p style=\"border-top: 1px solid #ddd; margin: 1em 0; padding: 0; font-size: 1px; line-height: 0;\">&nbsp;</p>\n"
     }
 
     mutating func visitHTMLBlock(_ html: HTMLBlock) -> String {
@@ -132,12 +134,19 @@ private struct HTMLVisitor: MarkupVisitor {
     }
 
     mutating func visitListItem(_ listItem: ListItem) -> String {
-        let content = defaultVisit(listItem)
         if let checkbox = listItem.checkbox {
-            let checked = checkbox == .checked
-            let checkboxHTML = "<input type=\"checkbox\" disabled\(checked ? " checked" : "")> "
-            return "<li>\(checkboxHTML)\(content)</li>\n"
+            // Visit children inline, skipping the <p> wrapper on single-paragraph
+            // items so the checkbox character and text appear on the same line.
+            let content = listItem.children.map { child -> String in
+                if let paragraph = child as? Paragraph {
+                    return defaultVisit(paragraph)
+                }
+                return visit(child)
+            }.joined()
+            let marker = checkbox == .checked ? "&#x2611;" : "&#x2610;"
+            return "<li style=\"list-style: none;\">\(marker) \(content)</li>\n"
         }
+        let content = defaultVisit(listItem)
         return "<li>\(content)</li>\n"
     }
 

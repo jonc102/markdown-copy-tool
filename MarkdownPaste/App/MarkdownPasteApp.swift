@@ -10,6 +10,7 @@ struct MarkdownPasteApp: App {
             MenuBarView()
                 .environmentObject(appState)
         }
+        .menuBarExtraStyle(.window)
 
         Settings {
             SettingsView()

@@ -241,7 +241,7 @@ struct SettingsView: View {
             contentView
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .frame(width: 640, height: 440)
+        .frame(width: 580, height: 330)
     }
 
     @ViewBuilder
@@ -298,16 +298,6 @@ struct GeneralSettingsView: View {
                         title: "Include RTF Format",
                         description: "Enables pasting in more apps; may slightly alter formatting",
                         isOn: $appState.includeRTF
-                    )
-
-                    Divider().padding(.leading, 54)
-
-                    SettingToggleRow(
-                        icon: "bell",
-                        iconColor: .purple,
-                        title: "Notify on Conversion",
-                        description: "Show a notification when Markdown is detected and converted",
-                        isOn: $appState.showNotifications
                     )
 
                     Divider().padding(.leading, 54)

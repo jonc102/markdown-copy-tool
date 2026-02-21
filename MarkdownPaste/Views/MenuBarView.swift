@@ -1,14 +1,13 @@
 import SwiftUI
 
-// macOS 14+ settings button uses openSettings environment action, which both
-// opens the window and raises it if already open. activate() brings it to front
-// over other apps. Falls back to SettingsLink on macOS 13 (opens but won't raise).
+// MARK: - Settings Button (macOS 14+)
+
 @available(macOS 14, *)
 private struct SettingsButton: View {
     @Environment(\.openSettings) private var openSettings
 
     var body: some View {
-        Button("Settings...") {
+        MenuBarActionRow(label: "Settings...", shortcut: "⌘,") {
             NSApplication.shared.activate()
             openSettings()
             DispatchQueue.main.async {
@@ -21,48 +20,105 @@ private struct SettingsButton: View {
     }
 }
 
+// MARK: - Reusable Action Row
+
+private struct MenuBarActionRow: View {
+    let label: String
+    let shortcut: String
+    let action: () -> Void
+
+    @State private var isHovered = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack {
+                Text(label)
+                    .font(.system(size: 13))
+                Spacer()
+                Text(shortcut)
+                    .font(.system(size: 12))
+                    .foregroundColor(.secondary)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 7)
+            .background(isHovered ? Color.primary.opacity(0.1) : Color.clear)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { isHovered = $0 }
+    }
+}
+
+// MARK: - Menu Bar View
+
 struct MenuBarView: View {
     @EnvironmentObject var appState: AppState
 
     var body: some View {
-        Button {
-            appState.isEnabled.toggle()
-        } label: {
-            if appState.isEnabled {
-                Label("Enabled", systemImage: "checkmark")
+        VStack(spacing: 0) {
+
+            // Enable toggle row
+            HStack(spacing: 10) {
+                Text("MarkdownPaste")
+                    .font(.system(size: 13, weight: .semibold))
+                Spacer()
+                Toggle("", isOn: $appState.isEnabled)
+                    .toggleStyle(.switch)
+                    .labelsHidden()
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+
+            Divider()
+
+            // Conversion stats
+            Group {
+                if appState.conversionCount > 0 {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Conversions: \(appState.conversionCount)")
+                        if let lastDate = appState.lastConversionDate {
+                            Text("Last: \(lastDate, style: .relative) ago")
+                        }
+                    }
+                } else {
+                    Text("No conversions yet")
+                }
+            }
+            .font(.system(size: 12))
+            .foregroundColor(.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+
+            Divider()
+
+            // Settings
+            if #available(macOS 14, *) {
+                SettingsButton()
             } else {
-                Text("Disabled")
+                SettingsLink {
+                    HStack {
+                        Text("Settings...")
+                            .font(.system(size: 13))
+                        Spacer()
+                        Text("⌘,")
+                            .font(.system(size: 12))
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 7)
+                }
+                .keyboardShortcut(",", modifiers: [.command])
             }
-        }
-        .keyboardShortcut("e", modifiers: [.command])
 
-        Divider()
-
-        if appState.conversionCount > 0 {
-            Text("Conversions: \(appState.conversionCount)")
-            if let lastDate = appState.lastConversionDate {
-                Text("Last: \(lastDate, style: .relative) ago")
+            // Quit
+            MenuBarActionRow(label: "Quit MarkdownPaste", shortcut: "⌘Q") {
+                NSApplication.shared.terminate(nil)
             }
-        } else {
-            Text("No conversions yet")
+            .keyboardShortcut("q", modifiers: [.command])
+
+            Spacer().frame(height: 6)
         }
-
-        Divider()
-
-        if #available(macOS 14, *) {
-            SettingsButton()
-        } else {
-            SettingsLink {
-                Text("Settings...")
-            }
-            .keyboardShortcut(",", modifiers: [.command])
-        }
-
-        Divider()
-
-        Button("Quit MarkdownPaste") {
-            NSApplication.shared.terminate(nil)
-        }
-        .keyboardShortcut("q", modifiers: [.command])
+        .frame(width: 240)
     }
 }

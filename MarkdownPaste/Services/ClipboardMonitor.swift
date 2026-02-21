@@ -1,5 +1,4 @@
 import AppKit
-import UserNotifications
 
 @MainActor
 class ClipboardMonitor {
@@ -40,13 +39,15 @@ class ClipboardMonitor {
     }
 
     private func checkClipboard() {
-        // 1. Guard: is monitoring enabled?
-        guard appState.isEnabled else { return }
-
-        // 2. Guard: has clipboard changed?
+        // 1. Guard: has clipboard changed?
+        // Always track changeCount even when disabled, so that re-enabling
+        // monitoring does not process clipboard content copied while paused.
         let currentChangeCount = pasteboard.changeCount
         guard currentChangeCount != lastChangeCount else { return }
         lastChangeCount = currentChangeCount
+
+        // 2. Guard: is monitoring enabled?
+        guard appState.isEnabled else { return }
 
         // 3. Guard: is this our own write? (marker present)
         guard pasteboard.types?.contains(.markdownPasteMarker) != true else { return }
@@ -97,15 +98,6 @@ class ClipboardMonitor {
         appState.conversionCount += 1
         appState.lastConversionDate = Date()
 
-        if appState.showNotifications { sendConversionNotification() }
-    }
-
-    private func sendConversionNotification() {
-        let content = UNMutableNotificationContent()
-        content.title = "Markdown Converted"
-        content.body = "Clipboard updated with formatted text"
-        let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
-        UNUserNotificationCenter.current().add(request, withCompletionHandler: nil)
     }
 
     /// Check if HTML contains semantic content tags (from browsers, docs, etc.)
