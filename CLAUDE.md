@@ -137,6 +137,7 @@ Milestones 1–7 and 9 are complete. See `docs/PLAN.md` for remaining tasks:
 - **Milestone 8**: Manual QA testing
 - ~~**Milestone 9**: App icon design~~ ✓ (app icon + custom M↓ menu bar icon)
 - **Milestone 10**: Performance profiling
-- **Milestone 11**: Unsigned DMG distribution + GitHub Release
-- **Milestone 12**: Polish & enhancements (v1.1)
-- **Milestone 13**: Monetization — free trial + lifetime unlock (v2.0, requires Apple Developer Program)
+- **Milestone 11**: GitHub repository setup for production (branch protection, CI, LICENSE, templates)
+- **Milestone 12**: Unsigned DMG distribution + GitHub Release
+- **Milestone 13**: Polish & enhancements (v1.1)
+- **Milestone 14**: Monetization — free trial + lifetime unlock (v2.0, requires Apple Developer Program)

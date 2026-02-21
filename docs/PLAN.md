@@ -260,7 +260,92 @@ Or use Instruments: Product > Profile (⌘I) in Xcode, choose Time Profiler or L
 
 ---
 
-### Milestone 11: Unsigned DMG Distribution
+### Milestone 11: GitHub Repository Setup for Production
+**Goal**: Ensure the repository and GitHub settings are correctly configured before the first public release.
+
+**Repository metadata**
+- [ ] Confirm repo visibility is **Public** (required for free GitHub Actions minutes and GitHub Releases)
+- [ ] Set repository **Description** (e.g., "macOS menu bar utility that auto-converts Markdown clipboard content to rich text")
+- [ ] Add **Topics/tags**: `macos`, `swift`, `swiftui`, `menu-bar`, `clipboard`, `markdown`, `markdown-converter`, `utility`
+- [ ] Set **Website** field to the future landing page or GitHub Pages URL
+
+**License**
+- [ ] Add a `LICENSE` file — MIT is recommended for a solo-developer open-source utility:
+  ```bash
+  gh api repos/jonc102/markdown-copy-tool \
+    --method PATCH --field license_template=mit
+  ```
+  Or create `LICENSE` manually with the MIT text and your name/year.
+
+**Branch protection (main)**
+- [ ] Go to Settings > Branches > Add branch protection rule for `main`:
+  - [x] Require a pull request before merging
+  - [x] Require at least 1 approval
+  - [x] Require status checks to pass before merging (add the CI job once GitHub Actions is set up)
+  - [x] Do not allow force pushes
+  - [x] Do not allow branch deletions
+
+**GitHub Actions CI**
+- [ ] Create `.github/workflows/ci.yml`:
+  ```yaml
+  name: CI
+  on:
+    push:
+      branches: [main]
+    pull_request:
+      branches: [main]
+  jobs:
+    build-and-test:
+      runs-on: macos-15
+      steps:
+        - uses: actions/checkout@v4
+        - name: Install XcodeGen
+          run: brew install xcodegen
+        - name: Generate Xcode project
+          run: xcodegen generate
+        - name: Build
+          run: xcodebuild build -project MarkdownPaste.xcodeproj -scheme MarkdownPaste | xcbeautify
+        - name: Test
+          run: xcodebuild test -project MarkdownPaste.xcodeproj -scheme MarkdownPaste | xcbeautify
+  ```
+- [ ] Add CI status badge to `README.md`:
+  ```markdown
+  [![CI](https://github.com/jonc102/markdown-copy-tool/actions/workflows/ci.yml/badge.svg)](https://github.com/jonc102/markdown-copy-tool/actions/workflows/ci.yml)
+  ```
+- [ ] Confirm CI passes on `main` before the first release
+
+**Issue & PR templates**
+- [ ] Create `.github/ISSUE_TEMPLATE/bug_report.md` — fields: description, steps to reproduce, expected vs actual, macOS version, app version
+- [ ] Create `.github/ISSUE_TEMPLATE/feature_request.md` — fields: problem, proposed solution, alternatives considered
+- [ ] Create `.github/PULL_REQUEST_TEMPLATE.md` — fields: summary, type of change, testing done, checklist (tests pass, CLAUDE.md updated)
+
+**Security policy**
+- [ ] Create `SECURITY.md`:
+  - Supported versions table
+  - How to report a vulnerability (email preferred over public issue)
+  - Expected response time
+
+**Dependabot**
+- [ ] Create `.github/dependabot.yml` to keep `swift-markdown` SPM dependency up to date:
+  ```yaml
+  version: 2
+  updates:
+    - package-ecosystem: swift
+      directory: "/"
+      schedule:
+        interval: weekly
+  ```
+
+**Housekeeping**
+- [ ] Verify `.gitignore` excludes: `build/`, `*.xcuserstate`, `xcuserdata/`, `DerivedData/`, `.DS_Store`
+- [ ] Disable unused GitHub features in Settings: Wiki (unless documenting there), Sponsorships (until monetisation is ready)
+- [ ] Enable **GitHub Discussions** if you want community feedback before v1.0
+
+**Acceptance**: `main` is protected, CI is green, LICENSE is present, issue templates exist, and the repo is ready to receive its first public GitHub Release.
+
+---
+
+### Milestone 12: Unsigned DMG Distribution
 **Goal**: Package the app into a `.dmg` for sharing without an Apple Developer license.
 
 The app will trigger a Gatekeeper "unidentified developer" warning. Recipients bypass it by right-clicking → Open → Open (one-time). This is acceptable for early distribution to validate demand before investing in a $99/year Developer ID.
@@ -297,7 +382,7 @@ The app will trigger a Gatekeeper "unidentified developer" warning. Recipients b
 
 ---
 
-### Milestone 12: Polish & Enhancements (v1.1)
+### Milestone 13: Polish & Enhancements (v1.1)
 **Goal**: Quality-of-life improvements based on early user feedback.
 
 Prioritize based on what users actually request:
@@ -330,7 +415,7 @@ Prioritize based on what users actually request:
 
 ---
 
-### Milestone 13: Monetization — Free Trial + Lifetime Unlock (v2.0)
+### Milestone 14: Monetization — Free Trial + Lifetime Unlock (v2.0)
 **Goal**: Once demand is validated, sign up for Apple Developer Program and monetize with a free trial and one-time lifetime purchase.
 
 **Prerequisites**:
