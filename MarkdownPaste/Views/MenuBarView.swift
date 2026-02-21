@@ -1,5 +1,26 @@
 import SwiftUI
 
+// macOS 14+ settings button uses openSettings environment action, which both
+// opens the window and raises it if already open. activate() brings it to front
+// over other apps. Falls back to SettingsLink on macOS 13 (opens but won't raise).
+@available(macOS 14, *)
+private struct SettingsButton: View {
+    @Environment(\.openSettings) private var openSettings
+
+    var body: some View {
+        Button("Settings...") {
+            NSApplication.shared.activate()
+            openSettings()
+            DispatchQueue.main.async {
+                if let settingsWindow = NSApp.windows.first(where: { $0.canBecomeKey && $0.isVisible }) {
+                    settingsWindow.makeKeyAndOrderFront(nil)
+                }
+            }
+        }
+        .keyboardShortcut(",", modifiers: [.command])
+    }
+}
+
 struct MenuBarView: View {
     @EnvironmentObject var appState: AppState
 
@@ -28,10 +49,14 @@ struct MenuBarView: View {
 
         Divider()
 
-        SettingsLink {
-            Text("Settings...")
+        if #available(macOS 14, *) {
+            SettingsButton()
+        } else {
+            SettingsLink {
+                Text("Settings...")
+            }
+            .keyboardShortcut(",", modifiers: [.command])
         }
-        .keyboardShortcut(",", modifiers: [.command])
 
         Divider()
 

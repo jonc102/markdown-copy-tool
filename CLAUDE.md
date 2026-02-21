@@ -48,7 +48,7 @@ MarkdownPaste/
 - `Services/MarkdownDetector.swift` — 15 pre-compiled `NSRegularExpression` patterns with weighted scoring, `.anchorsMatchLines` for `^`/`$` anchors
 - `Services/MarkdownConverter.swift` — `HTMLVisitor` conforming to `MarkupVisitor` (22 visit methods), CSS styling, RTF via `NSAttributedString`
 - `Services/ClipboardWriter.swift` — Multi-format `NSPasteboardItem` write with self-marker
-- `Views/MenuBarView.swift` — Toggle, conversion status, `SettingsLink`, quit with keyboard shortcuts
+- `Views/MenuBarView.swift` — Toggle, conversion status, Settings button, quit with keyboard shortcuts
 - `Views/SettingsView.swift` — `TabView` with General (enable, login, RTF) and Detection (sensitivity slider) tabs
 - `Utilities/PasteboardTypes.swift` — `NSPasteboard.PasteboardType.markdownPasteMarker` extension
 - `Utilities/Constants.swift` — `pollingInterval` (0.5s), `maxContentSize` (100KB), `defaultDetectionThreshold` (2)
@@ -101,7 +101,7 @@ class ClipboardMonitor {
 - Prefer `guard` for early returns in pipeline methods
 - Pre-compile `NSRegularExpression` patterns as stored properties in `init()`, not per-call
 - Use `.anchorsMatchLines` option for regex patterns that use `^` or `$` anchors
-- `SettingsLink` (SwiftUI native) for opening settings, not `NSApp.sendAction(Selector(...))`
+- Use `@Environment(\.openSettings)` (macOS 14+) + `NSApplication.shared.activate()` for the Settings button — this both opens and raises the window. `SettingsLink` does not activate the app and fails to raise an already-open window in menu bar–only apps (`LSUIElement = true`). `NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)` is unreliable in SwiftUI; `SettingsLink` uses an internal SwiftUI mechanism, not that selector. Fall back to `SettingsLink` on macOS 13.
 
 ## Gotchas
 
