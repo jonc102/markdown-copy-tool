@@ -58,7 +58,7 @@ if [ "$SIGN" = "1" ]; then
     echo "Step 3: Exporting archive..."
     xcodebuild -exportArchive \
         -archivePath "$ARCHIVE_PATH" \
-        -exportOptionsPlist "${PROJECT_DIR}/ExportOptions.plist" \
+        -exportOptionsPlist "${PROJECT_DIR}/Scripts/ExportOptions.plist" \
         -exportPath "$EXPORT_PATH" \
         | tail -5
     echo "  Done."

@@ -132,7 +132,7 @@ class ClipboardMonitor {
 
 ## Implementation Status
 
-Milestones 1–7 and 9 are complete. See `PLAN.md` for remaining tasks:
+Milestones 1–7 and 9 are complete. See `docs/PLAN.md` for remaining tasks:
 - ~~**Milestone 7**: Build verification~~ ✓ (70 tests passing)
 - **Milestone 8**: Manual QA testing
 - ~~**Milestone 9**: App icon design~~ ✓ (app icon + custom M↓ menu bar icon)
