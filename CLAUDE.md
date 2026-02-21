@@ -132,10 +132,10 @@ class ClipboardMonitor {
 
 ## Implementation Status
 
-All core milestones (1-6) are complete. See `PLAN.md` for remaining tasks:
-- **Milestone 7**: Build verification (requires Xcode)
+Milestones 1–7 and 9 are complete. See `PLAN.md` for remaining tasks:
+- ~~**Milestone 7**: Build verification~~ ✓ (70 tests passing)
 - **Milestone 8**: Manual QA testing
-- **Milestone 9**: App icon design
+- ~~**Milestone 9**: App icon design~~ ✓ (app icon + custom M↓ menu bar icon)
 - **Milestone 10**: Performance profiling
 - **Milestone 11**: Unsigned DMG distribution + GitHub Release
 - **Milestone 12**: Polish & enhancements (v1.1)
