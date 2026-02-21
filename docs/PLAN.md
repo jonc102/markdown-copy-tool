@@ -42,12 +42,16 @@ MarkdownPaste/
 │   │   └── AppState.swift           # @MainActor singleton, @AppStorage prefs
 │   ├── Views/
 │   │   ├── MenuBarView.swift        # Dropdown: toggle, status, settings, quit
-│   │   └── SettingsView.swift       # General + Detection tabs
+│   │   ├── SettingsView.swift       # General + Detection + License tabs
+│   │   └── LicenseSettingsView.swift # Trial status, key entry, buy link (v2.0)
+│   ├── Models/
+│   │   └── LicenseState.swift       # Enum: .trial, .expired, .licensed (v2.0)
 │   ├── Services/
 │   │   ├── ClipboardMonitor.swift   # Timer-based NSPasteboard polling
 │   │   ├── MarkdownDetector.swift   # 15 weighted regex patterns
 │   │   ├── MarkdownConverter.swift  # swift-markdown HTMLVisitor → HTML + RTF
-│   │   └── ClipboardWriter.swift    # NSPasteboardItem multi-format write
+│   │   ├── ClipboardWriter.swift    # NSPasteboardItem multi-format write
+│   │   └── LicenseManager.swift     # Trial tracking, API validation (v2.0)
 │   ├── Utilities/
 │   │   ├── Constants.swift          # Polling interval, max size, threshold
 │   │   └── PasteboardTypes.swift    # Marker type extension
@@ -57,7 +61,9 @@ MarkdownPaste/
 ├── MarkdownPasteTests/
 │   ├── MarkdownDetectorTests.swift  # 22 tests
 │   ├── MarkdownConverterTests.swift # 23 tests
-│   └── ClipboardWriterTests.swift   # 11 tests
+│   ├── ClipboardWriterTests.swift   # 11 tests
+│   ├── LicenseStateTests.swift      # ~12 tests (v2.0)
+│   └── LicenseManagerTests.swift    # ~15 tests (v2.0)
 ├── Scripts/
 │   └── build-release.sh            # Archive, sign, notarize, DMG
 ├── ExportOptions.plist              # developer-id export config
@@ -416,69 +422,61 @@ Prioritize based on what users actually request:
 ---
 
 ### Milestone 14: Monetization — Free Trial + Lifetime Unlock (v2.0)
-**Goal**: Once demand is validated, sign up for Apple Developer Program and monetize with a free trial and one-time lifetime purchase.
+**Goal**: Monetize with a 14-day free trial and one-time lifetime purchase ($9-15 USD) via LemonSqueezy/Gumroad. Source-available under FSL (Functional Source License).
 
-**Prerequisites**:
-- Proven demand (download count, user feedback, feature requests)
-- Apple Developer Program enrollment ($99/year)
-- Payment infrastructure decision
+**Status**: Design complete. Implementation blocked on QA (Milestone 8).
 
-**Phase 1: Apple Developer Program & Signed Distribution**
-- [ ] Enroll in Apple Developer Program ($99/year) at https://developer.apple.com/programs/
-- [ ] Set up Developer ID Application certificate (Xcode > Settings > Accounts)
-- [ ] Configure signing in `project.yml`:
-  ```yaml
-  settings:
-    base:
-      CODE_SIGN_IDENTITY: "Developer ID Application"
-      DEVELOPMENT_TEAM: "YOUR_TEAM_ID"
-  ```
-- [ ] Store notarization credentials:
-  ```bash
-  xcrun notarytool store-credentials "notarytool-profile" \
-    --apple-id "your@email.com" \
-    --team-id "YOUR_TEAM_ID" \
-    --password "app-specific-password"
-  ```
-- [ ] Run signed release: `APPLE_ID="..." APPLE_TEAM_ID="..." ./Scripts/build-release.sh`
-- [ ] Verify Gatekeeper accepts without warnings: `spctl --assess --type execute /path/to/app`
+**Key decisions**:
+- **License**: FSL — source-available, converts to MIT after 2 years
+- **Trial**: 14 days from first launch, full lockout on expiry
+- **Payment**: LemonSqueezy/Gumroad — web checkout → license key → validate via API → cache locally
+- **Gate**: Single guard in `ClipboardMonitor.checkClipboard()` — stops converting when expired
+- **UX**: Trial days always visible in menu bar; purchase link in both menu bar and Settings
 
-**Phase 2: Trial + Licensing System**
-- [ ] Choose licensing approach:
-  - **Option A — Gumroad / LemonSqueezy**: Hosted payment page, license key validation via API, minimal code. Best for solo dev.
-  - **Option B — RevenueCat**: Handles subscriptions/purchases, macOS SDK available, receipt validation. Best if considering subscriptions later.
-  - **Option C — Custom**: Generate license keys yourself, validate offline with cryptographic signing. Most control, most work.
-- [ ] Implement trial logic in `AppState`:
-  ```swift
-  @AppStorage("firstLaunchDate") var firstLaunchDate: Double = 0  // TimeInterval
-  @AppStorage("licenseKey") var licenseKey: String = ""
+**Phase 1: Source-Available License & Signed Distribution**
+- [ ] Add FSL `LICENSE` file (Licensor: Jonathan Cheung, Change License: MIT, Change Date: 2 years from release)
+- [ ] Enroll in Apple Developer Program ($99/year)
+- [ ] Set up Developer ID certificate, configure signing in `project.yml`
+- [ ] Store notarization credentials
+- [ ] Build signed release, verify Gatekeeper acceptance
 
-  var isTrialActive: Bool {
-      let firstLaunch = Date(timeIntervalSince1970: firstLaunchDate)
-      return Date().timeIntervalSince(firstLaunch) < trialDuration
-  }
-  var isLicensed: Bool { !licenseKey.isEmpty && validateLicense(licenseKey) }
-  var canUseApp: Bool { isTrialActive || isLicensed }
-  ```
-- [ ] Add trial duration constant to `Constants.swift` (e.g., 7 or 14 days)
-- [ ] Create `LicenseView.swift`:
-  - Show trial days remaining
-  - "Enter License Key" text field
-  - "Buy License" button → opens payment page URL
-  - Validation feedback (valid/invalid key)
-- [ ] Gate `ClipboardMonitor.checkClipboard()` behind `appState.canUseApp`
-- [ ] Show trial expiry notice in `MenuBarView` when trial is ending (< 2 days left)
-- [ ] Add "Buy License" menu item in `MenuBarView` when unlicensed
+**Phase 2: Licensing System — Files to Create**
 
-**Phase 3: Pricing & Distribution**
-- [ ] Set pricing (suggested: $9-15 USD lifetime, based on comparable macOS utilities)
-- [ ] Create landing page / product page
-- [ ] Set up payment provider (Gumroad/LemonSqueezy page)
-- [ ] Update README with purchase link
-- [ ] Distribute signed+notarized DMG via GitHub Releases or landing page
-- [ ] Add analytics to track trial-to-purchase conversion (optional, privacy-respecting)
+| File | Purpose |
+|------|---------|
+| `MarkdownPaste/Models/LicenseState.swift` | Enum: `.trial(daysRemaining:)`, `.expired`, `.licensed` with `canConvert`, `statusText` |
+| `MarkdownPaste/Services/LicenseManager.swift` | `@MainActor class` — trial tracking, state computation, API validation, offline caching, deactivation |
+| `MarkdownPaste/Views/LicenseSettingsView.swift` | Settings tab: trial status card, key entry + activate, validation feedback, buy link, deactivate |
+| `MarkdownPasteTests/LicenseStateTests.swift` | ~12 tests: canConvert, isExpired, statusText for each state |
+| `MarkdownPasteTests/LicenseManagerTests.swift` | ~15 tests: trial computation, state transitions, API validation (mock URLProtocol) |
 
-**Acceptance**: Users can download, use the free trial for N days, purchase a lifetime license, enter the key, and continue using the app indefinitely. Signed DMG installs without Gatekeeper warnings.
+**Phase 2: Licensing System — Files to Modify**
+
+| File | Changes |
+|------|---------|
+| `Constants.swift` | Add `trialDurationDays` (14), `purchaseURL`, `licenseValidationURL`, `productID`, `licenseValidationTimeout` (15s) |
+| `AppState.swift` | Add `@AppStorage`: `firstLaunchDate`, `licenseKey`, `licenseValidatedAt`; add `@Published licenseState`; add `licenseManager` + `setupLicenseManager()`; change `private init()` to `init()` |
+| `AppDelegate.swift` | Add `AppState.shared.setupLicenseManager()` before monitor creation |
+| `ClipboardMonitor.swift` | Add step 0 guard: `guard appState.licenseState.canConvert else { return }` |
+| `MenuBarView.swift` | Add license section: trial countdown + "Buy License..." during trial; "Trial Expired" + "Unlock" when expired; "Licensed" badge |
+| `SettingsView.swift` | Add `case license` to `SettingsTab`, wire `LicenseSettingsView` |
+
+**Phase 2: Key Design Decisions**
+1. `LicenseState` computed from `@AppStorage` values, never stored — no stale state
+2. Trial uses UserDefaults — acceptable for $9-15 utility; Keychain later if needed
+3. Validate-once, use-forever — no periodic re-validation for lifetime purchase
+4. Generic API: supports LemonSqueezy (`valid: true`) and Gumroad (`success: true`)
+5. Timer keeps running when expired (zero-cost guard, instant resume on activation)
+6. Purchase entry point visible in menu bar AND Settings during trial (not just after expiry)
+
+**Phase 3: Payment Provider & Distribution**
+- [ ] Set up LemonSqueezy/Gumroad product ($9-15 USD lifetime)
+- [ ] Replace placeholder URLs in `Constants.swift` with real values
+- [ ] Create landing page
+- [ ] Update README with license info and purchase link
+- [ ] Distribute signed+notarized DMG
+
+**Acceptance**: Users can download, use the 14-day free trial, purchase a lifetime license via LemonSqueezy/Gumroad, enter the key, and continue using the app indefinitely. Signed DMG installs without Gatekeeper warnings. Source code available under FSL.
 
 ---
 
@@ -497,6 +495,12 @@ class AppState: ObservableObject {
     @AppStorage("includeRTF") var includeRTF: Bool            // default: true
     @Published var conversionCount: Int                        // default: 0
     @Published var lastConversionDate: Date?                   // default: nil
+
+    // Licensing (v2.0)
+    @AppStorage("firstLaunchDate") var firstLaunchDate: Double      // default: 0
+    @AppStorage("licenseKey") var licenseKey: String                 // default: ""
+    @AppStorage("licenseValidatedAt") var licenseValidatedAt: Double // default: 0
+    @Published var licenseState: LicenseState                        // default: .trial(daysRemaining: 14)
 }
 ```
 
@@ -547,6 +551,38 @@ enum Constants {
     static let pollingInterval: TimeInterval  // 0.5
     static let maxContentSize: Int            // 100_000
     static let defaultDetectionThreshold: Int // 2
+
+    // Licensing (v2.0)
+    static let trialDurationDays: Int              // 14
+    static let purchaseURL: String                 // LemonSqueezy checkout URL
+    static let licenseValidationURL: String        // LemonSqueezy API URL
+    static let productID: String                   // LemonSqueezy product ID
+    static let licenseValidationTimeout: TimeInterval // 15
+}
+```
+
+### LicenseState (v2.0)
+```swift
+// Value type, computed by LicenseManager from @AppStorage values
+enum LicenseState: Equatable {
+    case trial(daysRemaining: Int)
+    case expired
+    case licensed
+
+    var canConvert: Bool   // true for .trial and .licensed, false for .expired
+    var statusText: String // "Trial: X days left", "Trial Expired", "Licensed"
+}
+```
+
+### LicenseManager (v2.0)
+```swift
+// @MainActor, owns trial/license logic
+@MainActor
+class LicenseManager: ObservableObject {
+    init(appState: AppState)
+    var currentState: LicenseState
+    func validateLicenseKey(_ key: String) async -> LicenseValidationResult
+    func deactivateLicense()
 }
 ```
 
@@ -554,7 +590,7 @@ enum Constants {
 
 ## Verification Plan
 
-1. **Unit tests**: `xcodebuild test` — 56 tests across detector (22), converter (23), writer (11)
+1. **Unit tests**: `xcodebuild test` — 70 tests across detector (22), converter (23), writer (11), plus 14 additional tests
 2. **Manual QA matrix** (see Milestone 8 for full checklist):
    - Copy Markdown from Terminal → paste in Slack → should render formatted
    - Copy plain English → paste → should remain plain text
@@ -563,3 +599,4 @@ enum Constants {
    - Toggle app off → copy Markdown → paste → should remain raw
 3. **Performance**: Detector <5ms, converter <100ms on typical documents
 4. **Distribution**: Install from unsigned DMG on clean Mac, verify right-click → Open bypass works, verify launch-at-login
+5. **Monetization** (v2.0): Trial starts on first launch and expires after 14 days; expired trial blocks conversion; license key activates via API; licensed state persists across restarts; deactivation clears license and resumes expired state

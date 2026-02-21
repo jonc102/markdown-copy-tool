@@ -15,7 +15,7 @@ Swift · SwiftUI · macOS 13+ · `swift-markdown` (SPM) · XcodeGen · Bundle ID
 |---------|-------------|
 | `xcodegen generate` | Generate `.xcodeproj` from `project.yml` |
 | `xcodebuild build -project MarkdownPaste.xcodeproj -scheme MarkdownPaste` | Build the app |
-| `xcodebuild test -project MarkdownPaste.xcodeproj -scheme MarkdownPaste` | Run all 56 unit tests |
+| `xcodebuild test -project MarkdownPaste.xcodeproj -scheme MarkdownPaste` | Run all 70 unit tests |
 | `xcodebuild test -only-testing:MarkdownPasteTests/MarkdownDetectorTests` | Run a single test class |
 | `./Scripts/build-release.sh` | Build and package unsigned DMG |
 | `SIGN=1 ./Scripts/build-release.sh` | Build signed DMG (requires Developer ID) |
@@ -27,13 +27,13 @@ Swift · SwiftUI · macOS 13+ · `swift-markdown` (SPM) · XcodeGen · Bundle ID
 MarkdownPaste/
 ├── MarkdownPaste/
 │   ├── App/           # MarkdownPasteApp.swift (@main), AppDelegate, AppState
-│   ├── Views/         # MenuBarView (dropdown), SettingsView (General + Detection tabs)
+│   ├── Views/         # MenuBarView (dropdown), SettingsView (General + Detection + Support tabs)
 │   ├── Services/      # ClipboardMonitor, MarkdownDetector, MarkdownConverter, ClipboardWriter
 │   ├── Utilities/     # Constants, PasteboardTypes (marker extension)
 │   └── Resources/     # Assets.xcassets, Info.plist
-├── MarkdownPasteTests/  # 56 tests: detector (22), converter (23), writer (11)
-├── Scripts/             # build-release.sh
-├── ExportOptions.plist  # developer-id export config
+├── MarkdownPasteTests/  # 70 tests: detector (31), converter (27), writer (12)
+├── Scripts/             # build-release.sh, ExportOptions.plist, generate-icon.swift, generate-menubar-icon.swift
+├── docs/                # PLAN.md, QA.md
 └── project.yml          # XcodeGen configuration
 ```
 
@@ -44,14 +44,19 @@ MarkdownPaste/
 - `App/MarkdownPasteApp.swift` — `@main` entry point, `MenuBarExtra` + `Settings` scenes
 - `App/AppState.swift` — `@MainActor` singleton with `@AppStorage` preferences, `SMAppService` login item management
 - `App/AppDelegate.swift` — Creates and manages `ClipboardMonitor` lifecycle
-- `Services/ClipboardMonitor.swift` — Timer-based polling with 10-step guard pipeline, `[weak self]` timer, `.common` RunLoop mode
+- `Services/ClipboardMonitor.swift` — Timer-based polling with guard pipeline, `hasSemanticHTML()` to skip rich clipboard from browsers while allowing code editor HTML, `[weak self]` timer, `.common` RunLoop mode, optional `UNUserNotificationCenter` conversion notifications
 - `Services/MarkdownDetector.swift` — 15 pre-compiled `NSRegularExpression` patterns with weighted scoring, `.anchorsMatchLines` for `^`/`$` anchors
-- `Services/MarkdownConverter.swift` — `HTMLVisitor` conforming to `MarkupVisitor` (22 visit methods), CSS styling, RTF via `NSAttributedString`
+- `Services/MarkdownConverter.swift` — `HTMLVisitor` conforming to `MarkupVisitor` (22 visit methods), CSS styling, configurable `fontSize` parameter, RTF via `NSAttributedString`
 - `Services/ClipboardWriter.swift` — Multi-format `NSPasteboardItem` write with self-marker
 - `Views/MenuBarView.swift` — Toggle, conversion status, Settings button, quit with keyboard shortcuts
-- `Views/SettingsView.swift` — `TabView` with General (enable, login, RTF) and Detection (sensitivity slider) tabs
+- `Views/SettingsView.swift` — Sidebar navigation with General (enable, login, RTF, notifications, font size), Detection (sensitivity slider), and Support (Buy Me a Coffee link) tabs
 - `Utilities/PasteboardTypes.swift` — `NSPasteboard.PasteboardType.markdownPasteMarker` extension
 - `Utilities/Constants.swift` — `pollingInterval` (0.5s), `maxContentSize` (100KB), `defaultDetectionThreshold` (2)
+
+**Planned (v2.0)** — these files do not exist yet:
+- `Models/LicenseState.swift` — `LicenseState` enum: `.trial(daysRemaining:)`, `.expired`, `.licensed` with computed `canConvert` and `statusText`
+- `Services/LicenseManager.swift` — `@MainActor class`: trial tracking (first launch date), license key validation via API, offline caching
+- `Views/LicenseSettingsView.swift` — Settings License tab: trial status, key entry, validation feedback, buy link
 
 ## Interface Contracts
 
@@ -64,6 +69,8 @@ class AppState: ObservableObject {
     @AppStorage("launchAtLogin") var launchAtLogin: Bool                // false
     @AppStorage("detectionSensitivity") var detectionSensitivity: Int   // 2
     @AppStorage("includeRTF") var includeRTF: Bool                     // true
+    @AppStorage("showNotifications") var showNotifications: Bool        // false
+    @AppStorage("baseFontSize") var baseFontSize: Int                  // 14
     @Published var conversionCount: Int                                 // 0
     @Published var lastConversionDate: Date?                            // nil
 }
@@ -76,7 +83,7 @@ struct MarkdownDetector {
 
 // Converter — uses swift-markdown AST + HTMLVisitor
 struct MarkdownConverter {
-    func convert(markdown: String) -> (html: String, rtf: Data?)
+    func convert(markdown: String, fontSize: Int = 14) -> (html: String, rtf: Data?)
 }
 
 // Writer — always includes marker type
@@ -85,11 +92,46 @@ struct ClipboardWriter {
 }
 
 // Monitor — owns detector, converter, writer; uses [weak self] timer
+@MainActor
 class ClipboardMonitor {
     init(appState: AppState)
     func start()
     func stop()
 }
+```
+
+**Planned contracts (v2.0)** — not yet implemented:
+```swift
+// LicenseState — value type, computed by LicenseManager
+enum LicenseState: Equatable {
+    case trial(daysRemaining: Int)
+    case expired
+    case licensed
+    var canConvert: Bool   // true for .trial and .licensed, false for .expired
+    var statusText: String // "Trial: X days left", "Trial Expired", "Licensed"
+}
+
+// LicenseManager — @MainActor, owns trial/license logic
+@MainActor
+class LicenseManager: ObservableObject {
+    init(appState: AppState)
+    var currentState: LicenseState
+    func validateLicenseKey(_ key: String) async -> LicenseValidationResult
+    func deactivateLicense()
+}
+
+// AppState additions for licensing
+@AppStorage("firstLaunchDate") var firstLaunchDate: Double      // 0
+@AppStorage("licenseKey") var licenseKey: String                 // ""
+@AppStorage("licenseValidatedAt") var licenseValidatedAt: Double // 0
+@Published var licenseState: LicenseState                        // .trial(daysRemaining: 14)
+
+// Constants additions for licensing
+static let trialDurationDays: Int              // 14
+static let purchaseURL: String                 // LemonSqueezy checkout URL
+static let licenseValidationURL: String        // LemonSqueezy API URL
+static let productID: String                   // LemonSqueezy product ID
+static let licenseValidationTimeout: TimeInterval // 15
 ```
 
 ## Code Style
@@ -118,17 +160,21 @@ class ClipboardMonitor {
 
 ## Testing
 
-56 tests across 3 test files:
+70 tests across 3 test files:
 
-- `MarkdownDetectorTests` (22 tests) — 15+ positive (all GFM patterns), 6 negative (plain text, URLs, emails), 6 edge cases (empty, whitespace, threshold boundary, score capping, zero threshold)
-- `MarkdownConverterTests` (23 tests) — all GFM elements produce correct HTML tags, RTF data is non-nil, HTML entities escaped, CSS styling present, full document structure, XSS prevention in code blocks
-- `ClipboardWriterTests` (11 tests) — all pasteboard types written, RTF conditional, marker always present, content integrity, clearing old content
+- `MarkdownDetectorTests` (31 tests) — positive (all GFM patterns), negative (plain text, URLs, emails), edge cases (empty, whitespace, threshold boundary, score capping, zero threshold)
+- `MarkdownConverterTests` (27 tests) — all GFM elements produce correct HTML tags, RTF data is non-nil, HTML entities escaped, CSS styling present, full document structure, XSS prevention in code blocks
+- `ClipboardWriterTests` (12 tests) — all pasteboard types written, RTF conditional, marker always present, content integrity, clearing old content
+
+**Planned tests (v2.0)** — 2 additional test files when monetization lands:
+- `LicenseStateTests` (~12 tests) — canConvert, isExpired, statusText for each state (.trial, .expired, .licensed)
+- `LicenseManagerTests` (~15 tests) — trial computation, state transitions, API validation (mock URLProtocol)
 
 ## Distribution Strategy
 
 **Current (v1.0)**: Unsigned DMG via GitHub Releases. Recipients bypass Gatekeeper with right-click → Open → Open on first launch.
 
-**Future (v2.0)**: Once demand is validated, enroll in Apple Developer Program ($99/year) for signed+notarized distribution. Monetize with free trial (7-14 days) + one-time lifetime unlock ($9-15).
+**Future (v2.0)**: Source-available under FSL (Functional Source License, converts to MIT after 2 years). Signed+notarized DMG via Apple Developer Program. 14-day free trial with full lockout on expiry. One-time lifetime unlock ($9-15 USD) via LemonSqueezy/Gumroad — web checkout → license key → API validation → local cache.
 
 ## Implementation Status
 
@@ -140,4 +186,4 @@ Milestones 1–7 and 9 are complete. See `docs/PLAN.md` for remaining tasks:
 - **Milestone 11**: GitHub repository setup for production (branch protection, CI, LICENSE, templates)
 - **Milestone 12**: Unsigned DMG distribution + GitHub Release
 - **Milestone 13**: Polish & enhancements (v1.1)
-- **Milestone 14**: Monetization — free trial + lifetime unlock (v2.0, requires Apple Developer Program)
+- **Milestone 14**: Monetization — free trial + lifetime unlock (v2.0) — **design complete**, implementation after QA
