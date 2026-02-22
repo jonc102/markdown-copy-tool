@@ -52,6 +52,7 @@ struct SettingsCard<Content: View>: View {
         VStack(spacing: 0) {
             content
         }
+        .frame(maxWidth: .infinity)
         .background(
             RoundedRectangle(cornerRadius: 10)
                 .fill(Color(.controlBackgroundColor))
@@ -81,7 +82,6 @@ struct SettingToggleRow: View {
                 Text(description)
                     .font(.system(size: 11))
                     .foregroundColor(.secondary)
-                    .lineLimit(2)
             }
 
             Spacer()
@@ -122,7 +122,6 @@ struct SettingPickerRow: View {
                 Text(description)
                     .font(.system(size: 11))
                     .foregroundColor(.secondary)
-                    .lineLimit(2)
             }
 
             Spacer()
@@ -231,7 +230,7 @@ struct SettingsView: View {
                 Spacer()
             }
             .padding(8)
-            .frame(width: 200)
+            .frame(width: 220)
             .frame(maxHeight: .infinity)
             .background(Color(.windowBackgroundColor))
 
@@ -241,7 +240,7 @@ struct SettingsView: View {
             contentView
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .frame(width: 580, height: 330)
+        .frame(width: 744, height: 380)
     }
 
     @ViewBuilder
@@ -265,8 +264,7 @@ struct GeneralSettingsView: View {
     @EnvironmentObject var appState: AppState
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 16) {
                 Text("General")
                     .font(.system(size: 20, weight: .bold))
                     .padding(.bottom, 4)
@@ -315,9 +313,11 @@ struct GeneralSettingsView: View {
                         ]
                     )
                 }
+
+                Spacer()
             }
             .padding(24)
-        }
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -338,34 +338,35 @@ struct DetectionSettingsView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                Text("Detection")
-                    .font(.system(size: 20, weight: .bold))
-                    .padding(.bottom, 4)
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Detection")
+                .font(.system(size: 20, weight: .bold))
+                .padding(.bottom, 4)
 
-                SettingsCard {
-                    SettingSliderRow(
-                        icon: "slider.horizontal.3",
-                        iconColor: .blue,
-                        title: "Detection Sensitivity",
-                        value: Binding(
-                            get: { Double(appState.detectionSensitivity) },
-                            set: { appState.detectionSensitivity = Int($0) }
-                        ),
-                        range: 1...5,
-                        step: 1,
-                        valueLabel: sensitivityLabel
-                    )
-                }
-
-                Text("Lower values detect more content as Markdown (may cause false positives). Higher values require more Markdown patterns before converting.")
-                    .font(.system(size: 11))
-                    .foregroundColor(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+            SettingsCard {
+                SettingSliderRow(
+                    icon: "slider.horizontal.3",
+                    iconColor: .blue,
+                    title: "Detection Sensitivity",
+                    value: Binding(
+                        get: { Double(appState.detectionSensitivity) },
+                        set: { appState.detectionSensitivity = Int($0) }
+                    ),
+                    range: 1...5,
+                    step: 1,
+                    valueLabel: sensitivityLabel
+                )
             }
-            .padding(24)
+
+            Text("Lower values detect more content as Markdown (may cause false positives). Higher values require more Markdown patterns before converting.")
+                .font(.system(size: 11))
+                .foregroundColor(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Spacer()
         }
+        .padding(24)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -373,32 +374,33 @@ struct DetectionSettingsView: View {
 
 struct SupportSettingsView: View {
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                Text("Support")
-                    .font(.system(size: 20, weight: .bold))
-                    .padding(.bottom, 4)
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Support")
+                .font(.system(size: 20, weight: .bold))
+                .padding(.bottom, 4)
 
-                Text("Thank you for using MarkdownPaste! If you find it useful, consider supporting its development.")
-                    .font(.system(size: 13))
-                    .foregroundColor(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+            Text("Thank you for using MarkdownPaste! If you find it useful, consider supporting its development.")
+                .font(.system(size: 13))
+                .foregroundColor(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
 
-                SettingsCard {
-                    SettingLinkRow(
-                        icon: "heart.fill",
-                        iconColor: .yellow,
-                        title: "Buy Me a Coffee",
-                        description: "If you enjoy MarkdownPaste, consider supporting its development.",
-                        action: {
-                            if let url = URL(string: "https://buymeacoffee.com/jonc102") {
-                                NSWorkspace.shared.open(url)
-                            }
+            SettingsCard {
+                SettingLinkRow(
+                    icon: "heart.fill",
+                    iconColor: .yellow,
+                    title: "Buy Me a Coffee",
+                    description: "If you enjoy MarkdownPaste, consider supporting its development.",
+                    action: {
+                        if let url = URL(string: "https://buymeacoffee.com/jonc102") {
+                            NSWorkspace.shared.open(url)
                         }
-                    )
-                }
+                    }
+                )
             }
-            .padding(24)
+
+            Spacer()
         }
+        .padding(24)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
