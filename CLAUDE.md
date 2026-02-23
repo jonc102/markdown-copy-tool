@@ -4,6 +4,10 @@ macOS menu bar utility that monitors the clipboard, detects Markdown content, co
 
 Swift · SwiftUI · macOS 13+ · `swift-markdown` (SPM) · XcodeGen · Bundle ID: `com.jonathancheung.Marksmith`
 
+## Workflow Rules
+
+> **Before every commit**: review and update this file to reflect any changes to architecture, file structure, test counts, commands, gotchas, or implementation status. CLAUDE.md is the source of truth for the project — it must never be stale.
+
 ## Prerequisites
 
 - Xcode 15+
@@ -15,7 +19,7 @@ Swift · SwiftUI · macOS 13+ · `swift-markdown` (SPM) · XcodeGen · Bundle ID
 |---------|-------------|
 | `xcodegen generate` | Generate `.xcodeproj` from `project.yml` |
 | `xcodebuild build -project Marksmith.xcodeproj -scheme Marksmith` | Build the app |
-| `xcodebuild test -project Marksmith.xcodeproj -scheme Marksmith` | Run all 70 unit tests |
+| `xcodebuild test -project Marksmith.xcodeproj -scheme Marksmith` | Run all 75 unit tests |
 | `xcodebuild test -only-testing:MarksmithTests/MarkdownDetectorTests` | Run a single test class |
 | `./Scripts/build-release.sh` | Build and package unsigned DMG |
 | `SIGN=1 ./Scripts/build-release.sh` | Build signed DMG (requires Developer ID) |
@@ -31,7 +35,7 @@ Marksmith/
 │   ├── Services/      # ClipboardMonitor, MarkdownDetector, MarkdownConverter, ClipboardWriter
 │   ├── Utilities/     # Constants, PasteboardTypes (marker extension)
 │   └── Resources/     # Assets.xcassets, Info.plist
-├── MarksmithTests/  # 70 tests: detector (31), converter (27), writer (12)
+├── MarksmithTests/  # 75 tests: detector (31), converter (27), writer (12), performance (5)
 ├── Scripts/             # build-release.sh, ExportOptions.plist, generate-icon.swift, generate-menubar-icon.swift
 ├── docs/                # PLAN.md, QA.md
 └── project.yml          # XcodeGen configuration
@@ -166,11 +170,12 @@ static let licenseValidationTimeout: TimeInterval // 15
 
 ## Testing
 
-70 tests across 3 test files:
+75 tests across 4 test files:
 
 - `MarkdownDetectorTests` (31 tests) — positive (all GFM patterns), negative (plain text, URLs, emails), edge cases (empty, whitespace, threshold boundary, score capping, zero threshold)
 - `MarkdownConverterTests` (27 tests) — all GFM elements produce correct HTML tags, RTF data is non-nil, HTML entities escaped, CSS styling present, full document structure, XSS prevention in code blocks
 - `ClipboardWriterTests` (12 tests) — all pasteboard types written, RTF conditional, marker always present, content integrity, clearing old content
+- `MarkdownPerformanceTests` (5 tests) — detector and converter timing with typical and large fixtures, size guard assertion
 
 **Planned tests (v2.0)** — 2 additional test files when monetization lands:
 - `LicenseStateTests` (~12 tests) — canConvert, isExpired, statusText for each state (.trial, .expired, .licensed)
@@ -184,12 +189,12 @@ static let licenseValidationTimeout: TimeInterval // 15
 
 ## Implementation Status
 
-Milestones 1–9 are complete. See `docs/PLAN.md` for remaining tasks:
+Milestones 1–11 are complete (plus M10 automated portions). See `docs/PLAN.md` for remaining tasks:
 - ~~**Milestone 7**: Build verification~~ ✓ (75 tests passing)
 - ~~**Milestone 8**: Manual QA testing~~ ✓
 - ~~**Milestone 9**: App icon design~~ ✓ (app icon + custom M↓ menu bar icon)
-- **Milestone 10**: Performance profiling
-- **Milestone 11**: GitHub repository setup for production (branch protection, CI, LICENSE, templates)
+- ~~**Milestone 10**: Performance profiling~~ ✓ (automated; Instruments skipped)
+- ~~**Milestone 11**: GitHub repository setup~~ ✓ (CI, LICENSE, templates, Dependabot)
 - **Milestone 12**: Unsigned DMG distribution + GitHub Release
 - **Milestone 13**: Polish & enhancements (v1.1)
 - **Milestone 14**: Monetization — free trial + lifetime unlock (v2.0) — **design complete**, implementation after QA
