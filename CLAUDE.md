@@ -12,13 +12,35 @@ Swift · SwiftUI · macOS 13+ · `swift-markdown` (SPM) · XcodeGen · Bundle ID
 
 **Current version**: 1.1.0 (build 2)
 
-**Versioning convention** (single source of truth: `project.yml → MARKETING_VERSION`):
+**Versioning convention** (single source of truth: `project.yml`):
 
-| Release type | Example | When |
+Two independent fields in `project.yml`:
+
+| Field | Current | Meaning |
 |---|---|---|
-| Patch | 1.0.1 | Bug fixes |
-| Minor | 1.1.0 | New features |
-| Major | 2.0.0 | Monetization (M14) |
+| `MARKETING_VERSION` | `1.1.0` | User-visible version shown in About window and App Store |
+| `CURRENT_PROJECT_VERSION` | `2` | Build number — monotonically increasing integer, never resets |
+
+**When to bump what:**
+
+| Release type | `MARKETING_VERSION` | `CURRENT_PROJECT_VERSION` | Example |
+|---|---|---|---|
+| Bug fix | Increment patch | +1 | 1.1.0 → 1.1.1, build 3 |
+| New feature | Increment minor, reset patch | +1 | 1.1.0 → 1.2.0, build 3 |
+| Major / monetization | Increment major, reset minor+patch | +1 | 1.1.0 → 2.0.0, build 3 |
+| Beta / hotfix build | No change | +1 | 1.1.0 build 2 → 1.1.0 build 3 |
+
+**Rules:**
+- `CURRENT_PROJECT_VERSION` always increments for every release build — never resets, never repeats
+- `MARKETING_VERSION` follows [Semantic Versioning](https://semver.org): MAJOR.MINOR.PATCH
+- Both fields live only in `project.yml` — never hardcode versions elsewhere
+- Update "Current version" line above whenever either field changes
+
+**Bump checklist (before every release commit):**
+1. Edit `project.yml` → increment `MARKETING_VERSION` and/or `CURRENT_PROJECT_VERSION`
+2. Update `**Current version**` line in this file
+3. Regenerate project: `xcodegen generate`
+4. Verify version appears correctly in About window after build
 
 ## Prerequisites
 
